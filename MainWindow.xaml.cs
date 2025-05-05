@@ -3,6 +3,7 @@ using System.Windows;
 using System.Windows.Threading;
 using System.Windows.Media;
 using Microsoft.Win32.TaskScheduler;
+using System.Windows.Media.Imaging;
 using Application = System.Windows.Application;
 using MessageBox = System.Windows.MessageBox;
 
@@ -13,11 +14,15 @@ namespace PowerStatus {
         private const string APP_NAME = "PowerStatus";
         private const double INTERVAL_SECONDS = 5; // Interval for checking power requests
 
+        private const string ICON_FILE_SLEEP = "assets/sleep.ico";
+        private const string ICON_FILE_WAKE = "assets/wake.ico";
+        private readonly Icon ICON_SLEEP = LoadIconFromResource(ICON_FILE_SLEEP);
+        private readonly Icon ICON_WAKE = LoadIconFromResource(ICON_FILE_WAKE);
+        private readonly BitmapImage BITMAP_SLEEP = new BitmapImage(new Uri($"pack://application:,,,/{ICON_FILE_SLEEP}"));
+        private readonly BitmapImage BITMAP_WAKE = new BitmapImage(new Uri($"pack://application:,,,/{ICON_FILE_WAKE}"));
+
         private readonly SolidColorBrush BRUSH_BLACK = new SolidColorBrush(Colors.Black);
         private readonly SolidColorBrush BRUSH_RED = new SolidColorBrush(Colors.Red);
-
-        private readonly Icon ICON_SLEEP = LoadIconFromResource("sleep.ico");
-        private readonly Icon ICON_WAKE = LoadIconFromResource("wake.ico");
 
         private NotifyIcon _notifyIcon;
         private DispatcherTimer _timer;
@@ -25,6 +30,8 @@ namespace PowerStatus {
 
         public MainWindow() {
             InitializeComponent();
+            this.Icon = BITMAP_SLEEP;
+
             _notifyIcon = SetupTrayIcon();
             _timer = StartPowerRequestsTimer();
             EnableDisable();
@@ -196,11 +203,13 @@ namespace PowerStatus {
                     this.Title = "Power Status - Can Sleep";
                     if (_notifyIcon.Icon != ICON_SLEEP) {
                         _notifyIcon.Icon = ICON_SLEEP;
+                        this.Icon = BITMAP_SLEEP;
                     }
                 } else {
                     this.Title = "Power Status - Can NOT Sleep";
                     if (_notifyIcon.Icon != ICON_WAKE) {
                         _notifyIcon.Icon = ICON_WAKE;
+                        this.Icon = BITMAP_WAKE;
                     }
                 }
             } catch (Exception ex) {
@@ -211,7 +220,7 @@ namespace PowerStatus {
         }
 
         private static Icon LoadIconFromResource(string resourcePath) {
-            var resourceUri = new Uri($"pack://application:,,,/assets/{resourcePath}");
+            var resourceUri = new Uri($"pack://application:,,,/{resourcePath}");
             using (var stream = Application.GetResourceStream(resourceUri)?.Stream) {
                 if (stream == null) {
                     throw new FileNotFoundException($"Resource '{resourcePath}' not found.");
