@@ -2,8 +2,8 @@
 using System.Windows;
 using System.Windows.Threading;
 using System.Windows.Media;
-using Microsoft.Win32.TaskScheduler;
 using System.Windows.Media.Imaging;
+using Microsoft.Win32.TaskScheduler;
 using Application = System.Windows.Application;
 using MessageBox = System.Windows.MessageBox;
 
@@ -32,33 +32,18 @@ namespace PowerStatus {
             InitializeComponent();
             this.Icon = BITMAP_SLEEP;
 
+            string[] args = Environment.GetCommandLineArgs();
+            if (args.Length > 1 && args[1].Equals("\\delay", StringComparison.OrdinalIgnoreCase)) {
+                WaitUntilReady();   // delay if started from task scheduler
+            }
+
             _notifyIcon = SetupTrayIcon();
             _timer = StartPowerRequestsTimer();
+            
             EnableDisable();
         }
 
         private NotifyIcon SetupTrayIcon() {
-            // This program starts at logon. Wait until explorer.exe is ready to add a tray icon.
-            while (true) {
-                try {
-                    var process = System.Diagnostics.Process.GetProcessesByName("explorer").FirstOrDefault();
-                    if (process != null) {
-                        // wait 10 seconds for explorer.exe to be ready
-                        for (int i = 0; i < 10; i++) {
-                            if (process.Responding) {
-                                break;
-                            }
-                            Thread.Sleep(1000);
-                        }
-                        Thread.Sleep(10 * 1000);
-                        break;
-                    }
-                } catch (Exception) {
-                    // Ignore exceptions and keep waiting
-                }
-                System.Threading.Thread.Sleep(1000);
-            }
-
             var notifyIcon = new NotifyIcon {
                 Icon = ICON_SLEEP,
                 Visible = true,
@@ -82,7 +67,10 @@ namespace PowerStatus {
                 Interval = TimeSpan.FromSeconds(INTERVAL_SECONDS)
             };
             timer.Tick += (s, e) => CheckPowerRequests();
+            
+            CheckPowerRequests();
             timer.Start();
+            
             return timer;
         }
 
@@ -120,6 +108,36 @@ namespace PowerStatus {
             ExitApplication();
         }
 
+        private static void WaitUntilReady() {
+            // This program starts at logon. Wait until explorer.exe is ready to add a tray icon.
+            while (true) {
+                try {
+                    var process = System.Diagnostics.Process.GetProcessesByName("explorer").FirstOrDefault();
+                    if (process != null) {
+                        // wait 10 seconds for explorer.exe to be ready
+                        for (int i = 0; i < 10; i++) {
+                            if (process.Responding) {
+                                break;
+                            }
+                            Thread.Sleep(1000);
+                        }
+                        Thread.Sleep(5 * 1000); // sleep another 5 seconds for safety
+                        break;
+                    }
+                } catch (Exception) {
+                }
+                Thread.Sleep(1000);
+            }
+        }
+
+        private void EnableDisable() {
+            if (IsTaskScheduled()) {
+                Menu_RemoveStartupTask.IsEnabled = true;
+            } else {
+                Menu_RemoveStartupTask.IsEnabled = false;
+            }
+        }
+
         private void Menu_About_Click(object sender, RoutedEventArgs e) {
             var assembly = System.Reflection.Assembly.GetExecutingAssembly();
             var version = assembly.GetName().Version;
@@ -150,14 +168,6 @@ namespace PowerStatus {
             }
         }
 
-        private void EnableDisable() {
-            if (IsTaskScheduled()) {
-                Menu_RemoveStartupTask.IsEnabled = true;
-            } else {
-                Menu_RemoveStartupTask.IsEnabled = false;
-            }
-        }
-
         private void AddToStartupTaskScheduler() {
             if (IsTaskScheduled()) {
                 RemoveStartupTask();
@@ -170,7 +180,7 @@ namespace PowerStatus {
                 task.Principal.UserId = Environment.UserName;
                 task.Principal.LogonType = TaskLogonType.InteractiveToken;
                 task.Triggers.Add(new LogonTrigger());
-                task.Actions.Add(new ExecAction(appPath, null, null));
+                task.Actions.Add(new ExecAction(appPath, "\\delay", null));
                 task.Principal.RunLevel = TaskRunLevel.Highest;
                 taskService.RootFolder.RegisterTaskDefinition(APP_NAME, task);
             }

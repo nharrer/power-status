@@ -1,0 +1,8 @@
+{
+  "profiles": {
+    "PowerStatus": {
+      "commandName": "Project",
+      "commandLineArgs": ""
+    }
+  }
+}
